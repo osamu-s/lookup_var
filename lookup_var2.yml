@@ -1,0 +1,36 @@
+---
+- name: vars lookup pulgin
+  hosts: localhost
+  gather_facts: no
+  vars:
+    enable_metricbeat_system: yes
+    enable_metricbeat_docker: yes
+    enable_metricbeat_haproxy: no
+    module_names:
+      - system
+      - memcache
+      - docker
+      - haproxy
+
+  tasks:
+    - name: make list of varable names for each module
+      set_fact:
+        var_names: "{{ []
+          | zip_longest(module_names, fillvalue='enable_metricbeat_')
+          | map('join') | list }}"
+
+    # - make list of tuple of (module_name, enable_value).
+    #   enable_value is set boolean: true, false, or string: "undefined".
+    # - "to_json | from_json" converts to json format which
+    #   json_query accepts.
+    - name: make list of module_name enable_value tuple
+      set_fact:
+        name_val: "{{ module_names
+             | zip(lookup('vars', default='undefined', *var_names))
+             | list | to_json | from_json }}"
+
+    - debug:
+        msg:
+          - "{{ var_names }}"
+          - "{{ name_val | json_query('[? @[1] ==`true` ]') }}"
+          - "{{ name_val | json_query('[? @[1] ==`true` ][0]') }}"
